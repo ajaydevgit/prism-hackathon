@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PRISM: THROUGH THE DIMENSIONS — HACKATHON '26
 
-## Getting Started
+This is a production-quality, premium hackathon registration platform built with Next.js (App Router), Tailwind CSS, Framer Motion, and Supabase.
 
-First, run the development server:
+## Features
+
+- **Premium UI:** Dark theme with subtle gradients, glassmorphism, and smooth animations using Framer Motion.
+- **Dynamic Multi-step Registration:** Conditional routing based on team eligibility (MuLearn and Karma).
+- **Server-Side Validation:** Zod and Next.js Server Actions ensure the data and registration type (Free vs Paid) is secure and strictly verified on the backend.
+- **Admin Dashboard:** A protected dashboard to view stats and manage registrations.
+
+## Prerequisites
+
+1. Node.js 18+
+2. A Supabase project (for the PostgreSQL database)
+
+## Setup Instructions
+
+### 1. Database Setup
+
+1. Create a new project in [Supabase](https://supabase.com).
+2. Go to the SQL Editor in your Supabase dashboard.
+3. Copy the contents of `supabase/schema.sql` and run it to create the necessary tables and Row Level Security policies.
+
+### 2. Environment Variables
+
+Create a `.env.local` file in the root of the project with the following variables:
+
+```env
+# Supabase Configuration
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+
+# Admin Dashboard Password (Default is admin123 if not set)
+ADMIN_PASSWORD=your_secure_admin_password
+```
+
+### 3. Installation
+
+Install the dependencies:
+
+```bash
+npm install
+```
+
+### 4. Running the Development Server
+
+Start the server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application will be available at [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Navigation
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- **Landing Page:** `/`
+- **Registration Form:** `/register`
+- **Admin Dashboard:** `/admin` (Password protected, default: `admin123`)
 
-## Learn More
+## Testing the Logic Paths
 
-To learn more about Next.js, take a look at the following resources:
+As required, you can test the following paths in the registration form:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+- **Path A:** 2 members → MuLearn YES → Karma YES → Enter MUIDs → Domain → FREE Registration
+- **Path B:** 3 members → MuLearn YES → Karma NO → Domain → Paid (₹200) Registration
+- **Path C:** 4 members → MuLearn NO → Domain → Paid (₹200) Registration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The server action independently verifies the FREE/PAID logic to ensure frontend values aren't manipulated.
