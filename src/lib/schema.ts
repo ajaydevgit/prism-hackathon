@@ -55,7 +55,13 @@ export const registrationSchema = z.object({
     if (!data.paymentId || data.paymentId.trim() === "") {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        message: "Payment transaction ID is required",
+        message: "Payment transaction ID (UTR) is required",
+        path: ["paymentId"],
+      });
+    } else if (data.paymentId.trim().length !== 12 || !/^\d{12}$/.test(data.paymentId.trim())) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "UPI UTR must be exactly 12 digits",
         path: ["paymentId"],
       });
     }
