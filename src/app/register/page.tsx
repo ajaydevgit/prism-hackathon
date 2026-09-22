@@ -204,7 +204,7 @@ export default function RegisterPage() {
               <span className="text-violet-400 text-lg shrink-0">🎯</span>
               <div>
                 <p className="text-[11px] font-bold text-violet-300 uppercase tracking-wider">Limited Slots</p>
-                <p className="text-xs text-violet-200/80 font-semibold">Maximum 20 Teams Only</p>
+                <p className="text-xs text-violet-200/80 font-semibold">Maximum 30 Teams Only</p>
               </div>
             </div>
           </div>
