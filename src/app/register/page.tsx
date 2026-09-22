@@ -167,7 +167,7 @@ export default function RegisterPage() {
         if (errMsg === "DEADLINE_PASSED") {
           setSubmitError("⏰ Registration closed! The deadline was September 23, 2026.");
         } else if (errMsg === "CAPACITY_FULL") {
-          setSubmitError("🚫 All 20 team slots are filled! Registrations are now closed.");
+          setSubmitError("🚫 All 30 team slots are filled! Registrations are now closed.");
         } else {
           setSubmitError(errMsg);
         }

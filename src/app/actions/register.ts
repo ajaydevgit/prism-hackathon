@@ -32,7 +32,7 @@ export async function submitRegistration(data: z.infer<typeof registrationSchema
     }
 
     // ── TEAM CAP + SEQUENTIAL ID (single read) ───────────────────────
-    const MAX_TEAMS = 20;
+    const MAX_TEAMS = 30;
     let nextIdNum = 101;
     try {
       const allRegs = await getDocs(collection(db, "registrations"));
