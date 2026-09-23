@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { motion, AnimatePresence } from "framer-motion";
@@ -13,6 +13,8 @@ import { Input } from "@/components/ui/Input";
 import { submitRegistration } from "@/app/actions/register";
 import { Loader2, CheckCircle2, ChevronRight, ChevronLeft, Shield, Brain, BookOpen, HeartPulse, QrCode, MessageCircle, ScrollText } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { db } from "@/lib/firebase";
+import { collection, getDocs } from "firebase/firestore";
 
 const STEPS = [
   { id: 1, title: "Team Setup", short: "Team" },
@@ -82,6 +84,22 @@ export default function RegisterPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
+  
+  // New automated closure state
+  const [isClosed, setIsClosed] = useState(false);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+
+  useEffect(() => {
+    getDocs(collection(db, "registrations"))
+      .then((snapshot) => {
+        if (snapshot.size >= 22) setIsClosed(true);
+        setIsLoadingStatus(false);
+      })
+      .catch((err) => {
+        console.error(err);
+        setIsLoadingStatus(false);
+      });
+  }, []);
 
   const form = useForm<RegistrationFormData>({
     resolver: zodResolver(registrationSchema),
@@ -585,6 +603,32 @@ export default function RegisterPage() {
       );
     }
   };
+
+  if (isLoadingStatus) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white">
+        <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
+      </div>
+    );
+  }
+
+  if (isClosed) {
+    return (
+      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-white text-center p-8 relative overflow-hidden">
+        <div className="fixed inset-0 z-0 opacity-[0.025]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,1) 1px, transparent 1px)", backgroundSize: "50px 50px" }} />
+        <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-6 border border-red-500/30 z-10">
+          <Shield className="w-10 h-10 text-red-400" />
+        </div>
+        <h1 className="text-4xl font-black mb-4 z-10">Registrations Closed</h1>
+        <p className="text-neutral-400 max-w-md z-10">
+          All 22 team slots have been filled. Thank you for your overwhelming interest in PRISM Hackathon '26!
+        </p>
+        <Link href="/" className="mt-8 px-6 py-3 rounded-full bg-white text-black font-bold hover:bg-neutral-200 transition-colors z-10">
+          Return to Home
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#050505] text-white relative overflow-hidden">
