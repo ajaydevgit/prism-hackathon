@@ -1,730 +1,549 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import { registrationSchema, type RegistrationFormData } from "@/lib/schema";
 import { EVENT_CONFIG } from "@/config/event";
-import { Input } from "@/components/ui/Input";
-import { submitRegistration } from "@/app/actions/register";
-import { Loader2, CheckCircle2, ChevronRight, ChevronLeft, Shield, Brain, BookOpen, HeartPulse, QrCode, MessageCircle, ScrollText } from "lucide-react";
-import { cn } from "@/lib/utils";
-import { db } from "@/lib/firebase";
-import { collection, getDocs } from "firebase/firestore";
+import { ArrowUpRight, ArrowRight, Shield, Brain, BookOpen, HeartPulse, Sparkles, CheckCircle2, Clock, Users, Trophy, Phone, Mail, MapPin, MessageCircle, ScrollText } from "lucide-react";
+import { Button } from "@/components/ui/Button";
+import HeroCanvas from "@/components/3d/HeroCanvas";
+import { ScrollReveal, ParallaxSection } from "@/components/ui/ScrollReveal";
 
-const STEPS = [
-  { id: 1, title: "Team Setup", short: "Team" },
-  { id: 2, title: "Members", short: "Members" },
-  { id: 3, title: "μLEARN", short: "μLEARN" },
-  { id: 4, title: "Karma", short: "Karma" },
-  { id: 5, title: "Verification", short: "MUIDs" },
-  { id: 6, title: "Domain", short: "Domain" },
-  { id: 7, title: "Payment", short: "Payment" },
-  { id: 8, title: "Review", short: "Review" },
+const ORGANIZERS = [
+  { 
+    name: "μLEARN AEC", 
+    tag: "Coordinator", 
+    desc: "A vibrant peer-to-peer student tech culture at AEC driving grassroots learning, discovery, hackathons, and real tech career trajectories.",
+    symbol: "μ"
+  },
+  { 
+    name: "IEDC AEC", 
+    tag: "Coordinator", 
+    desc: "Innovation and Entrepreneurship Development Centre at AEC nurturing budding founders, startup ideation, and disruptive ventures.",
+    symbol: "I"
+  },
+  { 
+    name: "IEEE AEC", 
+    tag: "Coordinator", 
+    desc: "The IEEE student branch at AEC fostering global technological standards, engineering rigor, and groundbreaking innovation.",
+    symbol: "E"
+  },
+];
+
+const ENQUIRIES = [
+  {
+    name: "Dr. Shihabudeen H",
+    role: "Faculty Coordinator",
+    phone: "+91 94002 68086",
+    callUrl: "tel:+919400268086",
+  },
+  {
+    name: "Ajaydev A",
+    role: "Student Coordinator",
+    phone: "+91 98953 44059",
+    callUrl: "tel:+919895344059",
+  },
+  {
+    name: "Jeevan Abhilash",
+    role: "Student Coordinator",
+    phone: "+91 94978 67771",
+    callUrl: "tel:+9497867771",
+  },
+  {
+    name: "Abin V J",
+    role: "Student Coordinator",
+    phone: "+91 70122 19519",
+    callUrl: "tel:+917012219519",
+  },
+  {
+    name: "Kripa Mathew",
+    role: "Student Coordinator",
+    phone: "+91 81295 00411",
+    callUrl: "tel:+918129500411",
+  },
 ];
 
 const DOMAIN_ICONS: Record<string, React.ReactNode> = {
-  "cybersecurity": <Shield className="w-4 h-4" />,
-  "mental-health": <Brain className="w-4 h-4" />,
-  "education": <BookOpen className="w-4 h-4" />,
-  "healthcare": <HeartPulse className="w-4 h-4" />,
+  "cybersecurity": <Shield className="w-8 h-8" />,
+  "mental-health": <Brain className="w-8 h-8" />,
+  "education": <BookOpen className="w-8 h-8" />,
+  "healthcare": <HeartPulse className="w-8 h-8" />,
 };
 
-function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
-  return (
-    <label className="block text-[11px] font-semibold text-neutral-400 uppercase tracking-wider mb-1.5">
-      {children}{required && <span className="text-violet-500 ml-0.5">*</span>}
-    </label>
-  );
-}
-
-function SectionTitle({ children, sub }: { children: React.ReactNode; sub?: string }) {
-  return (
-    <div className="mb-7">
-      <h2 className="text-xl font-bold text-white">{children}</h2>
-      {sub && <p className="text-xs text-neutral-500 mt-1">{sub}</p>}
-    </div>
-  );
-}
-
-function YesNoCard({ selected, title, sub, onClick }: { selected: boolean; title: string; sub: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "text-left p-4 rounded-xl border transition-all duration-200",
-        selected
-          ? "border-violet-500 bg-violet-500/10 shadow-[0_0_0_1px_rgb(139,92,246,0.3)]"
-          : "border-white/[0.08] bg-[#0f0f14] hover:border-white/20"
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <div className={cn(
-          "w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
-          selected ? "border-violet-500" : "border-neutral-600"
-        )}>
-          {selected && <div className="w-2 h-2 rounded-full bg-violet-500"></div>}
-        </div>
-        <div>
-          <p className={cn("text-sm font-semibold", selected ? "text-white" : "text-neutral-300")}>{title}</p>
-          <p className="text-xs text-neutral-500">{sub}</p>
-        </div>
-      </div>
-    </button>
-  );
-}
-
-export default function RegisterPage() {
-  const router = useRouter();
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState("");
-  
-  // New automated closure state
-  const [isClosed, setIsClosed] = useState(false);
-  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
-
-  useEffect(() => {
-    getDocs(collection(db, "registrations"))
-      .then((snapshot) => {
-        if (snapshot.size >= 22) setIsClosed(true);
-        setIsLoadingStatus(false);
-      })
-      .catch((err) => {
-        console.error(err);
-        setIsLoadingStatus(false);
-      });
-  }, []);
-
-  const form = useForm<RegistrationFormData>({
-    resolver: zodResolver(registrationSchema),
-    defaultValues: {
-      teamName: "",
-      teamSize: 2,
-      members: [
-        { fullName: "", email: "", phone: "", college: "", experienceLevel: "Beginner", muid: "" },
-        { fullName: "", email: "", phone: "", college: "", experienceLevel: "Beginner", muid: "" },
-      ],
-      allHaveMuLearn: false,
-      allHaveKarma: false,
-      domain: "",
-      paymentId: "",
-      declarations: [false, false, false, false],
-    },
-    mode: "onChange",
-  });
-
-  const { watch, setValue, trigger, formState: { errors } } = form;
-  const values = watch();
-  const isFree = values.allHaveMuLearn && values.allHaveKarma;
-
-  const getVisibleSteps = () => {
-    const base = [1, 2, 3];
-    if (values.allHaveMuLearn) {
-      base.push(4);
-      if (values.allHaveKarma) base.push(5);
-    }
-    base.push(6, 7, 8);
-    return base;
-  };
-
-  const nextStep = async () => {
-    let fieldsToValidate: any[] = [];
-    if (currentStep === 1) fieldsToValidate = ["teamName", "teamSize"];
-    else if (currentStep === 2) fieldsToValidate = values.members.flatMap((_, i) =>
-      [`members.${i}.fullName`, `members.${i}.email`, `members.${i}.phone`, `members.${i}.college`, `members.${i}.experienceLevel`]
-    );
-    else if (currentStep === 5 && isFree) fieldsToValidate = values.members.map((_, i) => `members.${i}.muid`);
-    else if (currentStep === 6) fieldsToValidate = ["domain"];
-    else if (currentStep === 7 && !isFree) fieldsToValidate = ["paymentId"];
-
-    const isValid = await trigger(fieldsToValidate as any);
-    if (!isValid) return;
-
-    if (currentStep === 3 && !values.allHaveMuLearn) { setCurrentStep(6); return; }
-    if (currentStep === 4 && !values.allHaveKarma) { setCurrentStep(6); return; }
-    setCurrentStep((p) => p + 1);
-  };
-
-  const prevStep = () => {
-    if (currentStep === 6) {
-      if (!values.allHaveMuLearn) { setCurrentStep(3); return; }
-      if (!values.allHaveKarma) { setCurrentStep(4); return; }
-      setCurrentStep(5); return;
-    }
-    setCurrentStep((p) => p - 1);
-  };
-
-  const onSubmit = async (data: RegistrationFormData) => {
-    setIsSubmitting(true);
-    setSubmitError("");
-    try {
-      // 15-second timeout to prevent infinite stuck spinner if database is unreachable
-      const timeoutPromise = new Promise<{ success: false; error: string }>((_, reject) =>
-        setTimeout(() => reject(new Error("Connection timed out. Please verify your Firebase configuration.")), 15000)
-      );
-
-      const result = await Promise.race([
-        submitRegistration(data),
-        timeoutPromise,
-      ]) as { success: boolean; registrationId?: string; teamName?: string; registrationType?: string; error?: string };
-
-      if (result.success && result.registrationId) {
-        const params = new URLSearchParams({
-          t: result.teamName || "",
-          r: result.registrationType || "",
-        });
-        router.push(`/success/${result.registrationId}?${params.toString()}`);
-      } else {
-        const errMsg = result.error || "Failed to complete registration.";
-        if (errMsg === "DEADLINE_PASSED") {
-          setSubmitError("⏰ Registration closed! The deadline was September 23, 2026.");
-        } else if (errMsg === "CAPACITY_FULL") {
-          setSubmitError("🚫 All 21 team slots are filled! Registrations are now closed.");
-        } else {
-          setSubmitError(errMsg);
-        }
-      }
-    } catch (err: any) {
-      console.error("Submission failed:", err);
-      setSubmitError(err?.message || "Failed to connect to database. Please check your Firebase setup.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const visibleSteps = getVisibleSteps();
-  const currentIdx = visibleSteps.indexOf(currentStep);
-  const progress = ((currentIdx + 1) / visibleSteps.length) * 100;
-
-  const renderStep = () => {
-    switch (currentStep) {
-      // ── STEP 1 ──────────────────────────────────
-      case 1: return (
-        <motion.div key={1} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-          <SectionTitle sub="Give your team a name and choose the number of members.">Team Setup</SectionTitle>
-
-          {/* Deadline & Cap Info Banner */}
-          <div className="flex flex-col sm:flex-row gap-3 mb-6">
-            <div className="flex-1 flex items-center gap-3 bg-amber-950/20 border border-amber-500/20 rounded-xl px-4 py-3">
-              <span className="text-amber-400 text-lg shrink-0">⏰</span>
-              <div>
-                <p className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">Registration Deadline</p>
-                <p className="text-xs text-amber-200/80 font-semibold">23 September 2026</p>
-              </div>
-            </div>
-            <div className="flex-1 flex items-center gap-3 bg-violet-950/20 border border-violet-500/20 rounded-xl px-4 py-3">
-              <span className="text-violet-400 text-lg shrink-0">🎯</span>
-              <div>
-                <p className="text-[11px] font-bold text-violet-300 uppercase tracking-wider">Limited Slots</p>
-                <p className="text-xs text-violet-200/80 font-semibold">Maximum 22 Teams Only</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-5">
-            <div>
-              <FieldLabel required>Team Name</FieldLabel>
-              <Input {...form.register("teamName")} placeholder="e.g. Neural Ninjas" error={errors.teamName?.message} />
-            </div>
-            <div>
-              <FieldLabel required>Team Size</FieldLabel>
-              <div className="grid grid-cols-3 gap-3 mt-1">
-                {[2, 3, 4].map((size) => (
-                  <button
-                    key={size}
-                    type="button"
-                    onClick={() => {
-                      setValue("teamSize", size);
-                      const m = [...values.members];
-                      if (size > m.length) for (let i = m.length; i < size; i++) m.push({ fullName: "", email: "", phone: "", college: "", experienceLevel: "Beginner", muid: "" });
-                      else m.length = size;
-                      setValue("members", m);
-                    }}
-                    className={cn(
-                      "py-4 rounded-xl border text-sm font-bold transition-all",
-                      values.teamSize === size
-                        ? "border-violet-500 bg-violet-500/10 text-white shadow-[0_0_0_1px_rgba(139,92,246,0.3)]"
-                        : "border-white/[0.08] bg-[#0f0f14] text-neutral-400 hover:border-white/20 hover:text-white"
-                    )}
-                  >
-                    <p className="text-xl font-black text-inherit">{size}</p>
-                    <p className="text-[10px] uppercase tracking-widest mt-0.5">Members</p>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      );
-
-      // ── STEP 2 ──────────────────────────────────
-      case 2: return (
-        <motion.div key={2} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-          <SectionTitle sub="Provide details for all team members.">Team Members</SectionTitle>
-          <div className="space-y-5">
-            {values.members.map((_, idx) => (
-              <div key={idx} className="p-4 rounded-xl border border-white/[0.07] bg-[#0f0f14]">
-                <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest mb-4">
-                  {idx === 0 ? "Team Leader" : `Member ${idx + 1}`}
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <FieldLabel required>Full Name</FieldLabel>
-                    <Input {...form.register(`members.${idx}.fullName` as const)} placeholder="Full name" error={errors.members?.[idx]?.fullName?.message} />
-                  </div>
-                  <div>
-                    <FieldLabel required>Email</FieldLabel>
-                    <Input type="email" {...form.register(`members.${idx}.email` as const)} placeholder="email@example.com" error={errors.members?.[idx]?.email?.message} />
-                  </div>
-                  <div>
-                    <FieldLabel required>Phone</FieldLabel>
-                    <Input {...form.register(`members.${idx}.phone` as const)} placeholder="+91 98765 43210" error={errors.members?.[idx]?.phone?.message} />
-                  </div>
-                  <div>
-                    <FieldLabel required>College / Institution</FieldLabel>
-                    <Input {...form.register(`members.${idx}.college` as const)} placeholder="College name" error={errors.members?.[idx]?.college?.message} />
-                  </div>
-                  <div className="sm:col-span-2">
-                    <FieldLabel required>Experience Level</FieldLabel>
-                    <select
-                      {...form.register(`members.${idx}.experienceLevel` as const)}
-                      className="w-full h-11 rounded-md border border-white/10 bg-[#0B0B0F] px-3 text-sm text-white focus:outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
-                    >
-                      <option value="Beginner">Beginner</option>
-                      <option value="Intermediate">Intermediate</option>
-                      <option value="Advanced">Advanced</option>
-                    </select>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      );
-
-      // ── STEP 3 ──────────────────────────────────
-      case 3: return (
-        <motion.div key={3} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-          <SectionTitle sub="This applies to your entire team.">μLEARN Eligibility</SectionTitle>
-          <p className="text-sm text-neutral-300 mb-5">Do <strong>ALL</strong> team members have a μLEARN account?</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <YesNoCard selected={values.allHaveMuLearn === true} title="Yes, all have μLEARN" sub="Everyone has an active μLEARN account" onClick={() => setValue("allHaveMuLearn", true)} />
-            <YesNoCard selected={values.allHaveMuLearn === false} title="No, not all" sub="At least one member doesn't have μLEARN" onClick={() => setValue("allHaveMuLearn", false)} />
-          </div>
-        </motion.div>
-      );
-
-      // ── STEP 4 ──────────────────────────────────
-      case 4: return (
-        <motion.div key={4} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-          <SectionTitle sub="Minimum 12,000 Karma required for free registration.">Karma Eligibility</SectionTitle>
-          <p className="text-sm text-neutral-300 mb-5">Do <strong>ALL</strong> team members have 12,000+ μLEARN Karma?</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <YesNoCard selected={values.allHaveKarma === true} title="Yes, 12,000+ Karma" sub="All members meet the threshold" onClick={() => setValue("allHaveKarma", true)} />
-            <YesNoCard selected={values.allHaveKarma === false} title="No, below threshold" sub="At least one member is below 12,000" onClick={() => setValue("allHaveKarma", false)} />
-          </div>
-          {values.allHaveKarma === true && (
-            <div className="mt-4 p-3.5 rounded-lg bg-violet-500/10 border border-violet-500/20 text-violet-300 text-xs flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
-              <span><strong>Exclusive perk unlocked!</strong> Your team qualifies for FREE Registration. Verify your MUIDs next.</span>
-            </div>
-          )}
-        </motion.div>
-      );
-
-      // ── STEP 5 ──────────────────────────────────
-      case 5: return (
-        <motion.div key={5} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-          <SectionTitle sub="Your MUIDs will be verified by the organizers.">μLEARN Verification</SectionTitle>
-          <div className="space-y-3">
-            {values.members.map((m, idx) => (
-              <div key={idx} className="flex items-center gap-4 p-4 rounded-xl bg-[#0f0f14] border border-white/[0.07]">
-                <div className="w-8 h-8 rounded-full bg-violet-500/10 border border-violet-500/20 flex items-center justify-center shrink-0">
-                  <span className="text-violet-400 text-xs font-bold">{idx + 1}</span>
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[10px] font-bold text-violet-400 uppercase tracking-wider">{idx === 0 ? "Leader" : `Member ${idx + 1}`}</p>
-                  <p className="text-xs text-neutral-400 truncate">{m.fullName || "—"}</p>
-                </div>
-                <div className="flex-1">
-                  <Input placeholder="Enter MUID" {...form.register(`members.${idx}.muid` as const)} error={errors.members?.[idx]?.muid?.message} />
-                </div>
-              </div>
-            ))}
-          </div>
-        </motion.div>
-      );
-
-      // ── STEP 6 ──────────────────────────────────
-      case 6: return (
-        <motion.div key={6} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-          <SectionTitle sub="Select one primary domain for your team's project.">Problem Domain</SectionTitle>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {EVENT_CONFIG.domains.map((domain) => (
-              <button
-                key={domain.id}
-                type="button"
-                onClick={() => setValue("domain", domain.name)}
-                className={cn(
-                  "text-left p-4 rounded-xl border transition-all duration-200",
-                  values.domain === domain.name
-                    ? "border-violet-500 bg-violet-500/10 shadow-[0_0_0_1px_rgba(139,92,246,0.3)]"
-                    : "border-white/[0.08] bg-[#0f0f14] hover:border-white/20"
-                )}
-              >
-                <div className={cn("p-2 rounded-lg w-fit mb-2.5", values.domain === domain.name ? "bg-violet-500/20 text-violet-400" : "bg-white/5 text-neutral-500")}>
-                  {DOMAIN_ICONS[domain.id]}
-                </div>
-                <p className={cn("text-sm font-bold mb-1", values.domain === domain.name ? "text-white" : "text-neutral-300")}>{domain.name}</p>
-                <p className="text-xs text-neutral-500 leading-relaxed">{domain.description}</p>
-              </button>
-            ))}
-          </div>
-          {errors.domain && <p className="text-red-400 text-xs mt-3">{errors.domain.message}</p>}
-        </motion.div>
-      );
-
-      // ── STEP 7 ──────────────────────────────────
-      case 7: return (
-        <motion.div key={7} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-          <SectionTitle>{isFree ? "Free Registration" : "Standard Registration"}</SectionTitle>
-          {isFree ? (
-            <div className="space-y-4">
-              <div className="p-5 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center gap-4">
-                <div className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center">
-                  <CheckCircle2 className="w-5 h-5 text-green-400" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-green-300">μLEARN Eligibility Verified</p>
-                  <p className="text-xs text-green-500/80 mt-0.5">Your team qualifies for free registration. No payment required.</p>
-                </div>
-              </div>
-              <div className="p-5 rounded-xl bg-[#0f0f14] border border-white/[0.07]">
-                <p className="text-3xl font-black text-white">₹0</p>
-                <p className="text-xs text-neutral-500 mt-1">μLEARN AEC exclusive perk — all members verified with 12,000+ Karma</p>
-              </div>
-            </div>
-          ) : (
-            <div className="space-y-5">
-              <div className="p-4 rounded-xl bg-[#0f0f14] border border-white/[0.07] flex items-center justify-between">
-                <div>
-                  <p className="text-2xl font-black text-white">₹200 <span className="text-xs font-normal text-neutral-500">/ team</span></p>
-                  <p className="text-[11px] text-neutral-400 mt-0.5">Standard Registration Fee</p>
-                </div>
-                <div className="px-3 py-1 rounded-full bg-violet-500/10 border border-violet-500/20 text-violet-300 text-[10px] font-bold tracking-wider uppercase">
-                  UPI Payment
-                </div>
-              </div>
-
-              {/* QR Code Scanner Card */}
-              <div className="p-5 rounded-2xl bg-[#0e0e14] border border-white/10 text-center flex flex-col items-center">
-                <div className="inline-flex items-center gap-1.5 text-[11px] font-bold text-violet-400 uppercase tracking-wider mb-3">
-                  <QrCode className="w-4 h-4" />
-                  Scan QR with any UPI App
-                </div>
-
-                <div className="p-3 bg-white rounded-2xl shadow-xl shadow-violet-950/20 border border-neutral-200">
-                  <img
-                    src="/payment-qr.jpg"
-                    alt="PRISM Hackathon UPI QR Code"
-                    className="w-[220px] h-[220px] rounded-lg object-contain block mx-auto"
-                  />
-                </div>
-
-                <p className="text-xs text-neutral-400 mt-3 font-medium">
-                  Scan via GPay, PhonePe, Paytm or any UPI App to pay <strong className="text-white">₹200</strong>
-                </p>
-
-                <div className="mt-4 w-full flex items-center justify-between bg-[#050505] rounded-xl px-4 py-2.5 border border-white/5">
-                  <span className="text-[11px] text-neutral-500 font-medium">UPI ID</span>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-mono text-neutral-300">Google Pay UPI</span>
-                    <button
-                      type="button"
-                      onClick={() => alert("Please scan the QR code above using your UPI app.")}
-                      className="text-[10px] font-bold text-violet-400 hover:text-violet-300 uppercase tracking-wider"
-                    >
-                      Scan QR
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <FieldLabel required>Transaction / UTR Reference ID</FieldLabel>
-                <Input {...form.register("paymentId")} placeholder="Enter 12-digit UTR / Reference number" error={errors.paymentId?.message} />
-                <p className="text-xs text-neutral-500 mt-1.5 leading-relaxed">
-                  After paying ₹200 via the QR code, copy the 12-digit UTR / Reference ID from your UPI app transaction receipt and paste it here.
-                </p>
-              </div>
-
-              {/* WhatsApp Callout after Payment */}
-              <div className="p-3.5 rounded-xl bg-emerald-950/20 border border-emerald-500/20 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2.5">
-                  <MessageCircle className="w-4 h-4 text-emerald-400 shrink-0" />
-                  <span className="text-xs text-neutral-300">Join the official WhatsApp group for announcements</span>
-                </div>
-                <a
-                  href="https://chat.whatsapp.com/ECg5GigsLaFGz21WMASu37"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs font-bold text-emerald-400 hover:text-emerald-300 whitespace-nowrap"
-                >
-                  Join Link →
-                </a>
-              </div>
-            </div>
-          )}
-        </motion.div>
-      );
-
-      // ── STEP 8 ──────────────────────────────────
-      case 8: return (
-        <motion.div key={8} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}>
-          <SectionTitle sub="Verify everything before you submit.">Final Review</SectionTitle>
-          <div className="space-y-4 mb-6">
-            <div className="grid grid-cols-2 gap-3">
-              <div className="p-4 rounded-xl bg-[#0f0f14] border border-white/[0.07]">
-                <p className="text-[10px] text-neutral-600 uppercase tracking-widest mb-1">Team</p>
-                <p className="text-sm font-bold text-white">{values.teamName}</p>
-                <p className="text-xs text-neutral-500">{values.teamSize} members</p>
-              </div>
-              <div className="p-4 rounded-xl bg-[#0f0f14] border border-white/[0.07]">
-                <p className="text-[10px] text-neutral-600 uppercase tracking-widest mb-1">Domain</p>
-                <p className="text-sm font-bold text-violet-400">{values.domain}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-[#0f0f14] border border-white/[0.07]">
-                <p className="text-[10px] text-neutral-600 uppercase tracking-widest mb-1">Registration</p>
-                <p className={cn("text-sm font-bold", isFree ? "text-green-400" : "text-white")}>{isFree ? "FREE" : "₹200"}</p>
-                <p className="text-xs text-neutral-500">{isFree ? "μLEARN verified" : values.paymentId ? `Txn: ${values.paymentId}` : "Paid"}</p>
-              </div>
-              <div className="p-4 rounded-xl bg-[#0f0f14] border border-white/[0.07]">
-                <p className="text-[10px] text-neutral-600 uppercase tracking-widest mb-1">μLEARN</p>
-                <p className="text-sm font-bold text-white">{values.allHaveMuLearn ? "All have" : "Not all"}</p>
-                <p className="text-xs text-neutral-500">{values.allHaveKarma ? "12k+ Karma ✓" : "—"}</p>
-              </div>
-            </div>
-            <div className="p-4 rounded-xl bg-[#0f0f14] border border-white/[0.07]">
-              <p className="text-[10px] text-neutral-600 uppercase tracking-widest mb-3">Members</p>
-              <div className="space-y-2">
-                {values.members.map((m, i) => (
-                  <div key={i} className="flex items-center justify-between py-1.5 border-b border-white/[0.05] last:border-0">
-                    <div>
-                      <p className="text-xs font-semibold text-white">{m.fullName || "—"}</p>
-                      <p className="text-[10px] text-neutral-600">{m.college}</p>
-                    </div>
-                    {isFree && m.muid && <p className="text-[10px] font-mono text-violet-400">{m.muid}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* WhatsApp Group Announcement Banner */}
-          <div className="p-4 rounded-xl bg-[#0d1f14] border border-emerald-500/30 mb-6 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0">
-                <MessageCircle className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-emerald-300">Official PRISM WhatsApp Community</p>
-                <p className="text-[11px] text-neutral-400">Join for live notifications, hackathon schedules, and team updates.</p>
-                <p className="text-[10px] text-emerald-500/80 italic mt-0.5">This is the official group for participants only.</p>
-              </div>
-            </div>
-            <a
-              href="https://chat.whatsapp.com/ECg5GigsLaFGz21WMASu37"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="shrink-0 px-4 py-2 rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition-colors inline-flex items-center gap-1.5"
-            >
-              Join WhatsApp
-            </a>
-          </div>
-
-          {/* Guidelines Reminder */}
-          <div className="p-4 rounded-xl bg-violet-950/30 border border-violet-500/20 mb-5">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-lg bg-violet-500/15 border border-violet-500/20 flex items-center justify-center text-violet-400 shrink-0 mt-0.5">
-                <ScrollText className="w-4 h-4" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-violet-300 mb-0.5">Official Hackathon Guidelines</p>
-                <p className="text-[11px] text-neutral-400 leading-relaxed">Please read and understand all rules before submitting. By checking the box below, you confirm you have read and agree to the official guidelines.</p>
-                <a
-                  href="/guidelines"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 mt-2 text-[11px] font-bold text-violet-400 hover:text-violet-300 transition-colors"
-                >
-                  Read Full Guidelines →
-                </a>
-              </div>
-            </div>
-          </div>
-
-          {/* Declarations */}
-          <div className="mb-5">
-            <p className="text-[10px] font-bold text-neutral-500 uppercase tracking-widest mb-3">Consent & Declarations</p>
-            <div className="rounded-xl border border-white/5 bg-[#0a0a10] overflow-hidden divide-y divide-white/5">
-              {[
-                { id: 0, text: "I confirm all team information submitted is accurate." },
-                { id: 1, text: "I confirm the μLEARN information and MUIDs are accurate." },
-                { id: 2, text: "I understand μLEARN eligibility may be verified by organizers." },
-                { id: 3, text: <> I have read and agree to the <a href="/guidelines" target="_blank" className="text-violet-400 hover:underline font-semibold">Official Guidelines</a> of {EVENT_CONFIG.name}.</> },
-              ].map((decl) => (
-                <label key={decl.id} className="flex items-center gap-4 px-4 py-3.5 cursor-pointer group hover:bg-white/[0.02] transition-colors">
-                  <div className="relative shrink-0">
-                    <input
-                      type="checkbox"
-                      {...form.register(`declarations.${decl.id}` as const)}
-                      className="peer appearance-none w-5 h-5 rounded border border-white/20 bg-[#0B0B0F] checked:bg-violet-600 checked:border-violet-500 transition-colors cursor-pointer"
-                    />
-                    <svg className="absolute top-1 left-1 w-3 h-3 text-white pointer-events-none opacity-0 peer-checked:opacity-100" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                  <span className="text-xs text-neutral-400 group-hover:text-neutral-300 transition-colors leading-relaxed">{decl.text}</span>
-                </label>
-              ))}
-            </div>
-          </div>
-          {errors.declarations && <p className="text-red-400 text-xs mt-1">{errors.declarations.message}</p>}
-          {submitError && (
-            <div className="p-3 bg-red-500/10 border border-red-500/20 text-red-400 rounded-lg text-xs mt-3">{submitError}</div>
-          )}
-        </motion.div>
-      );
-    }
-  };
-
-  if (isLoadingStatus) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex items-center justify-center text-white">
-        <Loader2 className="w-8 h-8 animate-spin text-violet-500" />
-      </div>
-    );
-  }
-
-  if (isClosed) {
-    return (
-      <div className="min-h-screen bg-[#050505] flex flex-col items-center justify-center text-white text-center p-8 relative overflow-hidden">
-        <div className="fixed inset-0 z-0 opacity-[0.025]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,1) 1px, transparent 1px)", backgroundSize: "50px 50px" }} />
-        <div className="w-20 h-20 bg-red-500/20 rounded-full flex items-center justify-center mb-6 border border-red-500/30 z-10">
-          <Shield className="w-10 h-10 text-red-400" />
-        </div>
-        <h1 className="text-4xl font-black mb-4 z-10">Registrations Closed</h1>
-        <p className="text-neutral-400 max-w-md z-10">
-          All 22 team slots have been filled. Thank you for your overwhelming interest in PRISM Hackathon '26!
-        </p>
-        <Link href="/" className="mt-8 px-6 py-3 rounded-full bg-white text-black font-bold hover:bg-neutral-200 transition-colors z-10">
-          Return to Home
-        </Link>
-      </div>
-    );
-  }
+export default function Home() {
+  const isClosed = true; // Hardcoded to FORCE close registrations
 
   return (
-    <div className="min-h-screen bg-[#050505] text-white relative overflow-hidden">
-      {/* Grid background */}
-      <div className="fixed inset-0 z-0 opacity-[0.025]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,1) 1px, transparent 1px)", backgroundSize: "50px 50px" }} />
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[600px] h-[200px] bg-violet-700/10 blur-[100px] pointer-events-none z-0" />
+    <main className="min-h-screen flex flex-col relative bg-[#050505] selection:bg-violet-500/30">
 
-      {/* Navbar */}
-      <header className="w-full px-8 py-5 flex justify-between items-center z-30 sticky top-0 backdrop-blur-lg bg-[#050505]/70 border-b border-white/5">
-        <Link href="/" className="flex items-center gap-2.5">
-          <div className="w-6 h-6 rounded bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center">
-            <span className="text-white text-[10px] font-black">P</span>
+      {/* Futuristic grid background */}
+      <div
+        className="fixed inset-0 z-0 pointer-events-none opacity-[0.03]"
+        style={{
+          backgroundImage:
+            "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,1) 1px, transparent 1px)",
+          backgroundSize: "80px 80px",
+        }}
+      />
+      {/* Global glows */}
+      <div className="fixed top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] bg-violet-700/10 rounded-full blur-[180px] pointer-events-none z-0" />
+      <div className="fixed bottom-1/4 right-0 w-[600px] h-[600px] bg-blue-600/5 rounded-full blur-[160px] pointer-events-none z-0" />
+
+      {/* ═══════════════════════════════ NAVBAR ═══════════════════════════════ */}
+      <header className="w-full px-8 py-5 flex justify-between items-center z-40 sticky top-0 backdrop-blur-xl bg-[#050505]/75 border-b border-white/5 transition-all">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 via-purple-600 to-blue-600 flex items-center justify-center shadow-[0_0_15px_rgba(139,92,246,0.3)]">
+            <span className="text-white text-xs font-black tracking-tighter">P</span>
           </div>
-          <span className="text-xs font-bold tracking-widest text-neutral-400 uppercase hover:text-white transition-colors">PRISM</span>
-        </Link>
-        <div className="text-[10px] font-semibold text-neutral-600 uppercase tracking-widest text-right leading-relaxed">
-          PRISM · Through the Dimensions <br />
-          <span className="text-neutral-700">Hackathon '26 Registration</span>
+          <div>
+            <span className="text-sm font-black tracking-widest text-white uppercase block">PRISM</span>
+            <span className="text-[9px] tracking-widest text-neutral-500 uppercase block font-semibold">Hackathon '26</span>
+          </div>
         </div>
+        <nav className="hidden md:flex gap-8 text-xs font-semibold text-neutral-400 uppercase tracking-widest">
+          <Link href="#about" className="hover:text-white transition-colors">About</Link>
+          <Link href="#domains" className="hover:text-white transition-colors">Domains</Link>
+          <Link href="#guidelines" className="hover:text-violet-400 text-violet-300 transition-colors">Guidelines</Link>
+          <Link href="#organizers" className="hover:text-white transition-colors">Coordinators</Link>
+          <Link href="#enquiries" className="hover:text-white transition-colors">Enquiries</Link>
+          <Link href="#register" className="hover:text-white transition-colors">Register</Link>
+        </nav>
+        {isClosed ? (
+          <div className="flex items-center gap-2 text-xs font-bold px-5 py-2.5 rounded-full bg-neutral-800 text-neutral-400 cursor-not-allowed">
+            Closed
+          </div>
+        ) : (
+          <Link
+            href="/register"
+            className="flex items-center gap-2 text-xs font-bold px-5 py-2.5 rounded-full bg-violet-600 text-white hover:bg-violet-700 transition-all shadow-[0_0_20px_rgba(139,92,246,0.25)] hover:scale-105"
+          >
+            Register Team
+            <ArrowUpRight className="w-3.5 h-3.5" />
+          </Link>
+        )}
       </header>
 
-      <div className="relative z-10 max-w-[1000px] mx-auto px-6 py-12 flex flex-col lg:flex-row gap-10">
-        {/* Left: Progress sidebar */}
-        <aside className="lg:w-52 shrink-0">
-          <div className="lg:sticky lg:top-24">
-            <div className="flex flex-row lg:flex-col gap-2 overflow-x-auto pb-2 lg:pb-0">
-              {visibleSteps.map((s, i) => (
-                <div key={s} className={cn("flex items-center gap-2 shrink-0")}>
-                  <div className={cn(
-                    "w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold border transition-all shrink-0",
-                    s === currentStep ? "bg-violet-600 border-violet-500 text-white" :
-                    s < currentStep ? "bg-violet-500/20 border-violet-500/40 text-violet-400" :
-                    "bg-transparent border-white/10 text-neutral-600"
-                  )}>
-                    {s < currentStep ? "✓" : i + 1}
-                  </div>
-                  <span className={cn("text-xs font-medium hidden lg:block transition-colors", s === currentStep ? "text-white" : s < currentStep ? "text-neutral-500" : "text-neutral-700")}>
-                    {STEPS[s - 1].title}
-                  </span>
+      {/* ═══════════════════════════════ HERO SECTION (ENLARGED) ═══════════════════════════════ */}
+      <section className="relative z-10 flex items-center min-h-[105vh] py-20 px-8 md:px-16 max-w-[1440px] mx-auto w-full">
+        {/* Left — text */}
+        <div className="flex-1 max-w-2xl py-12">
+          <ScrollReveal direction="down" delay={0.1}>
+            <div className="inline-flex items-center gap-2.5 px-3.5 py-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 mb-8 backdrop-blur-sm">
+              <span className="w-2 h-2 rounded-full bg-violet-400 animate-ping"></span>
+              <span className="text-violet-300 text-xs font-semibold tracking-widest uppercase">
+                AEC Flagship Hackathon · Tech for Tomorrow
+              </span>
+            </div>
+          </ScrollReveal>
+
+          <ScrollReveal direction="left" delay={0.2}>
+            <h1 className="text-7xl md:text-8xl lg:text-[10rem] font-black tracking-tight leading-[0.85] text-white mb-4">
+              PRISM
+            </h1>
+            <p className="text-xl md:text-2xl font-light tracking-[0.25em] text-transparent bg-clip-text bg-gradient-to-r from-violet-300 via-neutral-200 to-blue-300 uppercase mb-8">
+              Through the Dimensions
+            </p>
+          </ScrollReveal>
+
+          <ScrollReveal direction="up" delay={0.3}>
+            <p className="text-neutral-400 text-base md:text-lg leading-relaxed max-w-xl mb-12">
+              A premier 24-hour intercollegiate hackathon exploring next-generation technological solutions across cybersecurity, mental health, education, and healthcare. Built for creators, visionaries, and engineers.
+            </p>
+          </ScrollReveal>
+
+          <ScrollReveal direction="up" delay={0.4}>
+            <div className="flex flex-col sm:flex-row flex-wrap gap-4 mb-14">
+              {isClosed ? (
+                <div className="flex items-center justify-center gap-2.5 bg-neutral-800 text-neutral-400 px-8 py-4 rounded-full font-bold text-sm cursor-not-allowed">
+                  Registrations Closed
                 </div>
-              ))}
+              ) : (
+                <Link
+                  href="/register"
+                  className="flex items-center justify-center gap-2.5 bg-white text-black px-8 py-4 rounded-full font-bold text-sm hover:bg-neutral-200 transition-all hover:scale-105 shadow-[0_0_35px_rgba(255,255,255,0.25)]"
+                >
+                  Register Your Team
+                  <ArrowUpRight className="w-4 h-4" />
+                </Link>
+              )}
+              <Link
+                href="#about"
+                className="flex items-center justify-center gap-2 text-white px-8 py-4 rounded-full font-semibold text-sm border border-white/15 hover:bg-white/5 transition-all hover:border-white/30"
+              >
+                Explore Hackathon
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <Link
+                href="/guidelines"
+                className="flex items-center justify-center gap-2 text-violet-300 px-8 py-4 rounded-full font-semibold text-sm border border-violet-500/30 bg-violet-500/10 hover:bg-violet-500/20 transition-all"
+              >
+                <ScrollText className="w-4 h-4" />
+                Guidelines
+              </Link>
             </div>
-            {/* Progress bar on desktop */}
-            <div className="hidden lg:block mt-6">
-              <div className="h-0.5 bg-white/5 rounded-full">
-                <div className="h-0.5 bg-violet-600 rounded-full transition-all duration-500" style={{ width: `${progress}%` }}></div>
+          </ScrollReveal>
+
+          {/* Equal Coordinators Pill List */}
+          <ScrollReveal direction="up" delay={0.5}>
+            <div className="flex items-center gap-3 flex-wrap pt-4 border-t border-white/5">
+              <span className="text-[11px] font-semibold text-neutral-500 uppercase tracking-widest">Coordinated equally by:</span>
+              <div className="flex flex-wrap gap-2">
+                <span className="text-xs px-3.5 py-1.5 rounded-full border border-violet-500/30 bg-violet-500/10 text-violet-300 font-bold tracking-wide">
+                  μLEARN AEC
+                </span>
+                <span className="text-xs px-3.5 py-1.5 rounded-full border border-blue-500/30 bg-blue-500/10 text-blue-300 font-bold tracking-wide">
+                  IEDC AEC
+                </span>
+                <span className="text-xs px-3.5 py-1.5 rounded-full border border-cyan-500/30 bg-cyan-500/10 text-cyan-300 font-bold tracking-wide">
+                  IEEE AEC
+                </span>
               </div>
-              <p className="text-[10px] text-neutral-600 mt-2">{Math.round(progress)}% complete</p>
             </div>
+          </ScrollReveal>
+        </div>
+
+        {/* Right — Interactive 3D Setup */}
+        <div className="hidden lg:block flex-1 h-[750px] relative">
+          <HeroCanvas />
+          {/* Ambient interactive floating badges */}
+          <div className="absolute top-12 right-6 px-5 py-3.5 rounded-2xl bg-[#111116]/85 border border-white/10 backdrop-blur-md text-center shadow-2xl transition-transform hover:-translate-y-1">
+            <p className="text-xl font-black text-emerald-400">AEC CAMPUS</p>
+            <p className="text-[10px] text-neutral-400 uppercase tracking-widest font-semibold mt-0.5">Physical Venue</p>
           </div>
-        </aside>
-
-        {/* Right: Form card */}
-        <div className="flex-1 min-w-0">
-          <div className="p-6 md:p-8 rounded-2xl bg-[#0f0f14] border border-white/[0.07]">
-            <form onSubmit={form.handleSubmit(onSubmit)}>
-              <AnimatePresence mode="wait">
-                {renderStep()}
-              </AnimatePresence>
-
-              {/* Nav buttons */}
-              <div className="flex items-center justify-between mt-8 pt-5 border-t border-white/[0.07]">
-                {currentStep > 1 ? (
-                  <button
-                    type="button"
-                    onClick={prevStep}
-                    disabled={isSubmitting}
-                    className="flex items-center gap-1.5 text-xs font-semibold text-neutral-500 hover:text-white transition-colors disabled:opacity-40"
-                  >
-                    <ChevronLeft className="w-3.5 h-3.5" /> Back
-                  </button>
-                ) : <div />}
-
-                {currentStep < 8 ? (
-                  <button
-                    type="button"
-                    onClick={nextStep}
-                    disabled={isSubmitting}
-                    className="flex items-center gap-1.5 text-xs font-bold px-5 py-2.5 rounded-full bg-violet-600 text-white hover:bg-violet-700 transition-colors disabled:opacity-40"
-                  >
-                    Continue <ChevronRight className="w-3.5 h-3.5" />
-                  </button>
-                ) : (
-                  <button
-                    type="submit"
-                    disabled={isSubmitting}
-                    className="flex items-center gap-2 text-sm font-bold px-7 py-3 rounded-full bg-white text-black hover:bg-neutral-100 transition-colors disabled:opacity-40 shadow-[0_0_30px_rgba(255,255,255,0.15)]"
-                  >
-                    {isSubmitting ? <><Loader2 className="w-4 h-4 animate-spin" /> Submitting...</> : "Submit Registration"}
-                  </button>
-                )}
-              </div>
-            </form>
+          <div className="absolute bottom-28 left-4 px-5 py-3.5 rounded-2xl bg-[#111116]/85 border border-white/10 backdrop-blur-md text-center shadow-2xl transition-transform hover:-translate-y-1">
+            <p className="text-xl font-black text-violet-400">TECH FOR TOMORROW</p>
+            <p className="text-[10px] text-neutral-400 uppercase tracking-widest font-semibold mt-0.5">Official Theme</p>
+          </div>
+          <div className="absolute bottom-12 right-10 px-5 py-3.5 rounded-2xl bg-[#111116]/85 border border-white/10 backdrop-blur-md text-center shadow-2xl transition-transform hover:-translate-y-1">
+            <p className="text-3xl font-black text-white">24H</p>
+            <p className="text-[10px] text-neutral-400 uppercase tracking-widest font-semibold mt-0.5">Hackathon Duration</p>
           </div>
         </div>
-      </div>
-    </div>
+      </section>
+
+      {/* ═══════════════════════════════ ABOUT SECTION (ENLARGED) ═══════════════════════════════ */}
+      <section id="about" className="relative z-10 min-h-[90vh] flex items-center py-32 px-8 md:px-16 border-t border-white/5 bg-[#050505]">
+        <div className="max-w-[1400px] mx-auto w-full">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-20 items-center">
+            <ScrollReveal direction="left">
+              <div>
+                <div className="inline-flex items-center gap-2 text-violet-400 text-[11px] font-bold tracking-[0.25em] uppercase mb-4">
+                  <Sparkles className="w-3.5 h-3.5" />
+                  About PRISM
+                </div>
+                <h2 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-[1.05] mb-2">
+                  PRISM
+                </h2>
+                <p className="text-base font-light tracking-[0.2em] text-neutral-400 uppercase mb-8">
+                  Through the Dimensions — Hackathon '26
+                </p>
+                <p className="text-neutral-300 text-base md:text-lg leading-relaxed mb-6">
+                  PRISM represents the dispersion of raw technological intellect into breakthrough spectrums of impact. It is a high-octane 24-hour sprint engineered to inspire college builders to tackle urgent real-world problems.
+                </p>
+                <p className="text-neutral-400 text-sm leading-relaxed mb-6">
+                  Jointly and equally coordinated by <strong className="text-white">μLEARN AEC</strong>, <strong className="text-white">IEDC AEC</strong>, and <strong className="text-white">IEEE AEC</strong>, PRISM bridges cutting-edge development with actionable industry relevance. Standard entry is ₹200 per team.
+                </p>
+
+                {/* Exclusive Free Perk Highlight Card */}
+                <div className="p-5 rounded-2xl bg-gradient-to-r from-violet-950/40 via-purple-950/30 to-blue-950/20 border border-violet-500/30 mb-8 backdrop-blur-sm shadow-xl">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-8 h-8 rounded-xl bg-violet-500/20 border border-violet-500/30 flex items-center justify-center shrink-0 text-violet-300 font-bold text-sm">
+                      μ
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-black text-violet-300 uppercase tracking-wider">Special Community Perk</span>
+                        <span className="text-[10px] font-bold bg-violet-500/20 text-violet-300 px-2 py-0.5 rounded-full border border-violet-500/30">100% FREE</span>
+                      </div>
+                      <p className="text-xs text-neutral-300 leading-relaxed">
+                        Teams where <strong className="text-white">all members have a μLEARN account with 12,000+ Karma</strong> qualify for <strong className="text-violet-300">completely free registration (₹0)</strong>. Verified directly via MUIDs during registration!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex gap-4">
+                  {isClosed ? (
+                    <div className="inline-flex items-center gap-2 text-xs font-bold px-7 py-3.5 rounded-full bg-neutral-800 text-neutral-400 cursor-not-allowed">
+                      Registrations Closed
+                    </div>
+                  ) : (
+                    <Link
+                      href="/register"
+                      className="inline-flex items-center gap-2 text-xs font-bold px-7 py-3.5 rounded-full bg-violet-600 text-white hover:bg-violet-700 transition-all shadow-lg shadow-violet-950/50 hover:scale-105"
+                    >
+                      Register Your Team — ₹200
+                      <ArrowRight className="w-4 h-4" />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            </ScrollReveal>
+
+            <ScrollReveal direction="right" delay={0.2}>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                {[
+                  { icon: <MapPin className="w-5 h-5 text-emerald-400" />, label: "Venue", value: "AEC Campus", sub: "Offline physical hackathon" },
+                  { icon: <Clock className="w-5 h-5 text-blue-400" />, label: "Duration", value: "24 Hours", sub: "Intense non-stop hackathon" },
+                  { icon: <Users className="w-5 h-5 text-violet-400" />, label: "Team Size", value: "2 – 4", sub: "Collaborative squads per team" },
+                  { icon: <Trophy className="w-5 h-5 text-purple-400" />, label: "Registration Fee", value: "₹200", sub: "Standard fee · μLearn 12k+ Karma gets Free" },
+                ].map((stat) => (
+                  <div 
+                    key={stat.label} 
+                    className="p-8 rounded-3xl bg-[#0e0e13] border border-white/[0.08] hover:border-violet-500/40 hover:bg-[#12121a] transition-all duration-300 group shadow-lg"
+                  >
+                    <div className="mb-4 p-3 rounded-xl bg-white/[0.04] w-fit border border-white/5 group-hover:scale-110 transition-transform">
+                      {stat.icon}
+                    </div>
+                    <p className="text-3xl md:text-4xl font-black text-white mb-1.5">{stat.value}</p>
+                    <p className="text-[11px] text-neutral-400 uppercase tracking-widest font-bold">{stat.label}</p>
+                    <p className="text-xs text-neutral-500 mt-2 leading-relaxed">{stat.sub}</p>
+                  </div>
+                ))}
+              </div>
+            </ScrollReveal>
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════ DOMAINS SECTION (ENLARGED) ═══════════════════════════════ */}
+      <section id="domains" className="relative z-10 min-h-[100vh] flex flex-col justify-center py-32 px-8 md:px-16 bg-[#0B0B0F]/70 border-t border-white/5">
+        <div className="max-w-[1400px] mx-auto w-full">
+          <ScrollReveal direction="up">
+            <div className="text-center max-w-3xl mx-auto mb-20">
+              <p className="text-[11px] font-bold text-violet-400 tracking-[0.25em] uppercase mb-3">Dimensions of Innovation</p>
+              <h2 className="text-4xl md:text-6xl font-black text-white mb-6">Hackathon Domains</h2>
+              <p className="text-neutral-400 text-sm md:text-base leading-relaxed">
+                Teams choose one domain to craft their solution. Each domain represents critical frontier challenges shaping the world of tomorrow.
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {EVENT_CONFIG.domains.map((domain, index) => (
+              <ScrollReveal key={domain.id} direction={index % 2 === 0 ? "left" : "right"} delay={index * 0.15}>
+                <div
+                  className="group p-10 rounded-3xl border border-white/[0.08] bg-[#0f0f14]/90 hover:border-violet-500/50 hover:bg-[#13131c] transition-all duration-500 backdrop-blur-md relative overflow-hidden shadow-2xl"
+                >
+                  <div className="absolute top-0 right-0 w-36 h-36 bg-violet-600/5 rounded-full blur-3xl group-hover:bg-violet-600/20 transition-all pointer-events-none" />
+                  <div className="flex items-start gap-6">
+                    <div className="p-4 rounded-2xl bg-violet-500/10 border border-violet-500/20 text-violet-400 group-hover:scale-110 group-hover:bg-violet-500/20 transition-all duration-300 shrink-0">
+                      {DOMAIN_ICONS[domain.id]}
+                    </div>
+                    <div>
+                      <span className="text-[10px] font-bold text-neutral-500 tracking-widest uppercase block mb-1">
+                        Domain 0{index + 1}
+                      </span>
+                      <h3 className="text-2xl font-black text-white group-hover:text-violet-300 transition-colors mb-3">
+                        {domain.name}
+                      </h3>
+                      <p className="text-sm text-neutral-400 leading-relaxed">
+                        {domain.description}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════ GUIDELINES SECTION ═══════════════════════════════ */}
+      <section id="guidelines" className="relative z-10 py-32 px-8 md:px-16 border-t border-white/5 bg-gradient-to-b from-[#0B0B0F]/70 to-[#050505]">
+        <div className="max-w-[1400px] mx-auto w-full">
+          <ScrollReveal direction="up">
+            <div className="bg-[#0e0e13] border border-white/10 rounded-3xl p-10 md:p-16 relative overflow-hidden flex flex-col lg:flex-row items-center justify-between gap-12 shadow-2xl">
+              {/* Background elements */}
+              <div className="absolute inset-0 opacity-[0.05]" style={{ backgroundImage: "linear-gradient(rgba(255,255,255,1) 1px, transparent 1px), linear-gradient(to right, rgba(255,255,255,1) 1px, transparent 1px)", backgroundSize: "40px 40px" }} />
+              <div className="absolute right-0 top-1/2 -translate-y-1/2 w-96 h-96 bg-violet-600/20 rounded-full blur-[100px] pointer-events-none" />
+              
+              <div className="relative z-10 max-w-2xl text-center lg:text-left">
+                <div className="inline-flex items-center gap-2 text-violet-400 text-[11px] font-bold tracking-[0.25em] uppercase mb-4 px-4 py-1.5 rounded-full border border-violet-500/20 bg-violet-500/10">
+                  <ScrollText className="w-3.5 h-3.5" />
+                  Rulebook
+                </div>
+                <h2 className="text-4xl md:text-5xl font-black text-white mb-6 leading-tight">Official Hackathon Guidelines</h2>
+                <p className="text-neutral-400 text-sm md:text-base leading-relaxed mb-8">
+                  Before registering your team, please review the official rules, judging criteria, and schedule. Understand the requirements for team composition, project eligibility, and ethical conduct.
+                </p>
+                
+                <div className="flex flex-wrap justify-center lg:justify-start gap-4">
+                  <div className="flex items-center gap-2 text-xs font-semibold text-neutral-300 bg-white/5 px-4 py-2.5 rounded-lg border border-white/10">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ₹6,000 Prize Pool
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-neutral-300 bg-white/5 px-4 py-2.5 rounded-lg border border-white/10">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Judging Criteria
+                  </div>
+                  <div className="flex items-center gap-2 text-xs font-semibold text-neutral-300 bg-white/5 px-4 py-2.5 rounded-lg border border-white/10">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    Full Schedule
+                  </div>
+                </div>
+              </div>
+
+              <div className="relative z-10 shrink-0">
+                <Link href="/guidelines" className="group flex flex-col items-center justify-center w-48 h-48 md:w-56 md:h-56 rounded-full bg-violet-600/10 border border-violet-500/30 hover:bg-violet-600 hover:scale-105 transition-all duration-300 shadow-[0_0_40px_rgba(139,92,246,0.15)]">
+                  <ScrollText className="w-10 h-10 md:w-12 md:h-12 text-violet-300 group-hover:text-white mb-3 transition-colors" />
+                  <span className="text-xs md:text-sm font-bold text-violet-200 group-hover:text-white uppercase tracking-widest text-center px-4">
+                    Read Full<br />Guidelines
+                  </span>
+                </Link>
+              </div>
+            </div>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════ EQUAL COORDINATORS (ENLARGED) ═══════════════════════════════ */}
+      <section id="organizers" className="relative z-10 min-h-[95vh] flex flex-col justify-center py-32 px-8 md:px-16 border-t border-white/5 bg-[#050505]">
+        <div className="max-w-[1400px] mx-auto w-full">
+          <ScrollReveal direction="up">
+            <div className="text-center max-w-3xl mx-auto mb-20">
+              <p className="text-[11px] font-bold text-violet-400 tracking-[0.25em] uppercase mb-3">United Front</p>
+              <h2 className="text-4xl md:text-6xl font-black text-white mb-6">Coordinating Communities</h2>
+              <p className="text-neutral-400 text-sm md:text-base leading-relaxed">
+                PRISM is co-engineered equally by the premier student communities at AEC, combining technical leadership, peer learning, and entrepreneurial empowerment.
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {ORGANIZERS.map((org, index) => (
+              <ScrollReveal key={org.name} direction="up" delay={index * 0.2}>
+                <div className="p-10 rounded-3xl bg-[#0e0e13] border border-white/[0.08] hover:border-violet-500/40 hover:bg-[#12121b] transition-all duration-500 text-left h-full flex flex-col justify-between shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-8 text-neutral-800 font-black text-6xl select-none group-hover:text-violet-900/30 transition-colors">
+                    {org.symbol}
+                  </div>
+                  <div>
+                    <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-violet-600 via-purple-700 to-blue-600 flex items-center justify-center mb-8 shadow-lg shadow-violet-950/50">
+                      <span className="text-white font-black text-xl">{org.symbol}</span>
+                    </div>
+                    <span className="text-[10px] text-violet-400 font-extrabold uppercase tracking-widest block mb-2">{org.tag}</span>
+                    <h3 className="text-2xl font-black text-white mb-4">{org.name}</h3>
+                    <p className="text-sm text-neutral-400 leading-relaxed mb-6">{org.desc}</p>
+                  </div>
+                  <div className="pt-6 border-t border-white/5 flex items-center gap-2 text-xs text-neutral-500 font-medium">
+                    <CheckCircle2 className="w-4 h-4 text-violet-400" />
+                    <span>Official Coordinator</span>
+                  </div>
+                </div>
+              </ScrollReveal>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════ ENQUIRIES & CONTACT SECTION ═══════════════════════════════ */}
+      <section id="enquiries" className="relative z-10 min-h-[85vh] flex flex-col justify-center py-32 px-8 md:px-16 border-t border-white/5 bg-[#08080c]">
+        <div className="max-w-[1400px] mx-auto w-full">
+          <ScrollReveal direction="up">
+            <div className="text-center max-w-3xl mx-auto mb-16">
+              <p className="text-[11px] font-bold text-violet-400 tracking-[0.25em] uppercase mb-3">Get In Touch</p>
+              <h2 className="text-4xl md:text-6xl font-black text-white mb-6">Enquiries & Contacts</h2>
+              <p className="text-neutral-400 text-sm md:text-base leading-relaxed">
+                Have questions about registration, rules, problem statements, or accommodation? Reach out directly to our faculty and student coordinators.
+              </p>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {ENQUIRIES.map((contact, index) => (
+              <ScrollReveal key={contact.name} direction="up" delay={index * 0.1}>
+                <div className="p-8 rounded-3xl bg-[#0e0e14] border border-white/[0.08] hover:border-violet-500/40 hover:bg-[#12121c] transition-all duration-300 group shadow-lg flex flex-col justify-between">
+                  <div>
+                    <div className="flex items-center justify-between mb-4">
+                      <span className="text-[10px] font-bold text-violet-400 tracking-wider uppercase bg-violet-500/10 border border-violet-500/20 px-3 py-1 rounded-full">
+                        {contact.role}
+                      </span>
+                      <div className="w-8 h-8 rounded-full bg-white/[0.03] border border-white/5 flex items-center justify-center text-neutral-400 group-hover:text-violet-400 transition-colors">
+                        <Phone className="w-3.5 h-3.5" />
+                      </div>
+                    </div>
+                    <h3 className="text-xl font-black text-white group-hover:text-violet-200 transition-colors mb-2">
+                      {contact.name}
+                    </h3>
+                  </div>
+                  <div className="pt-6 border-t border-white/5 mt-4">
+                    <p className="text-[10px] font-semibold text-neutral-500 uppercase tracking-widest mb-1.5">Direct Line</p>
+                    <a
+                      href={contact.callUrl}
+                      className="inline-flex items-center gap-2 text-sm md:text-base font-bold text-white hover:text-violet-400 transition-colors font-mono"
+                    >
+                      <Phone className="w-3.5 h-3.5 text-violet-400" />
+                      {contact.phone}
+                    </a>
+                  </div>
+                </div>
+              </ScrollReveal>
+            ))}
+          </div>
+
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════ REGISTRATION CTA SECTION (ENLARGED) ═══════════════════════════════ */}
+      <section id="register" className="relative z-10 min-h-[90vh] flex flex-col justify-center items-center py-36 px-8 border-t border-white/5 overflow-hidden bg-gradient-to-b from-[#050505] via-violet-950/20 to-[#050505]">
+        <div className="max-w-3xl mx-auto text-center relative z-10">
+          <ScrollReveal direction="up">
+            <div className={`inline-flex items-center gap-2 ${isClosed ? 'text-red-400 bg-red-500/10 border-red-500/20' : 'text-violet-400 bg-violet-500/10 border-violet-500/20'} text-[11px] font-bold tracking-[0.25em] uppercase mb-5 px-4 py-1.5 rounded-full border`}>
+              {isClosed ? "Registrations Closed" : "Registrations Open"}
+            </div>
+            <h2 className="text-6xl md:text-7xl lg:text-8xl font-black text-white mb-3 tracking-tight">PRISM</h2>
+            <p className="text-lg md:text-xl font-light tracking-[0.25em] text-neutral-400 uppercase mb-8">
+              Through the Dimensions — '26
+            </p>
+            <p className="text-neutral-300 text-base md:text-lg leading-relaxed mb-10 max-w-xl mx-auto">
+              Ready to break the dimensions? Secure your team's slot now for <strong className="text-white font-bold">₹200 per team</strong>. μLEARN AEC members with 12,000+ Karma receive an exclusive free registration perk.
+            </p>
+            <div className="flex flex-col sm:flex-row justify-center gap-5 items-center">
+              {isClosed ? (
+                <Button size="lg" disabled className="px-12 h-16 text-base rounded-full font-bold bg-neutral-800 text-neutral-400 cursor-not-allowed">
+                  All Slots Filled
+                </Button>
+              ) : (
+                <Button size="lg" variant="primary" asChild className="px-12 h-16 text-base rounded-full font-bold shadow-[0_0_50px_rgba(139,92,246,0.4)] hover:scale-105 transition-all">
+                  <Link href="/register">Register Your Team — ₹200</Link>
+                </Button>
+              )}
+              <Link
+                href="/guidelines"
+                className="flex items-center justify-center gap-2 text-white h-16 px-10 rounded-full font-semibold text-sm border border-white/15 hover:bg-white/5 transition-all hover:border-white/30"
+              >
+                <ScrollText className="w-5 h-5" />
+                Read Guidelines
+              </Link>
+            </div>
+            <p className="mt-8 text-xs text-neutral-500 max-w-md mx-auto leading-relaxed">
+              Standard ₹200 registration applies to all teams. μLEARN Karma verification is performed directly during registration.
+            </p>
+          </ScrollReveal>
+        </div>
+      </section>
+
+      {/* ═══════════════════════════════ FOOTER ═══════════════════════════════ */}
+      <footer className="py-12 px-8 md:px-16 border-t border-white/5 relative z-10 bg-[#030304]">
+        <div className="max-w-[1400px] mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="w-7 h-7 rounded bg-gradient-to-br from-violet-500 to-blue-600 flex items-center justify-center">
+              <span className="text-white text-[11px] font-black">P</span>
+            </div>
+            <div>
+              <span className="text-xs font-black tracking-widest text-white uppercase block">PRISM '26</span>
+              <span className="text-[10px] text-neutral-500 tracking-wider">Through the Dimensions</span>
+            </div>
+          </div>
+          <p className="text-xs text-neutral-600 text-center">
+            © 2026 PRISM Hackathon · Jointly and Equally Coordinated by μLEARN AEC, IEDC AEC & IEEE AEC
+          </p>
+          <div className="flex gap-6 text-xs text-neutral-400 font-semibold tracking-wide">
+            <Link href="/guidelines" className="text-violet-400 hover:text-violet-300 transition-colors">Guidelines</Link>
+            <span className="hover:text-white transition-colors cursor-pointer">μLEARN AEC</span>
+            <span className="hover:text-white transition-colors cursor-pointer">IEDC AEC</span>
+            <span className="hover:text-white transition-colors cursor-pointer">IEEE AEC</span>
+          </div>
+        </div>
+      </footer>
+    </main>
   );
 }
